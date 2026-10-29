@@ -1,0 +1,151 @@
+@import "@fontsource/fraunces/latin-500.css";
+@import "@fontsource/fraunces/latin-600.css";
+@import "@fontsource/outfit/latin-400.css";
+@import "@fontsource/outfit/latin-500.css";
+@import "@fontsource/outfit/latin-600.css";
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", "Avenir Next", "Segoe UI", sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", Palatino, Georgia, serif;
+
+  --color-bg: #f3f0ea;
+  --color-elevated: #fbfaf7;
+  --color-surface: #e7e1d6;
+  --color-fg: #1c1917;
+  --color-muted: #5e584f;
+  --color-subtle: #746e65;
+  --color-line: #ddd6cc;
+  --color-line-strong: #c9c0b4;
+  --color-accent: #1e3d34;
+  --color-accent-fg: #f3f0ea;
+  --color-danger: #8c3a3a;
+
+  --color-habit-pine: #1f6a45;
+  --color-habit-sea: #2b5878;
+  --color-habit-clay: #8a4632;
+  --color-habit-ink: #243e68;
+  --color-habit-olive: #4e5628;
+  --color-habit-rose: #7a3e4c;
+  --color-habit-slate: #3e4c56;
+  --color-habit-sand: #6a5228;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2.25rem;
+}
+
+:root {
+  --motion-fast: 250ms;
+  --motion-quick: 150ms;
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html {
+    background: var(--color-bg);
+  }
+
+  body {
+    min-height: 100vh;
+    background: var(--color-bg);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus-visible,
+  [role="tab"]:focus-visible,
+  a:focus-visible,
+  input:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+.page-wrap {
+  padding-bottom: max(4rem, env(safe-area-inset-bottom));
+}
+
+.motion-colors {
+  transition-property: background-color, color, border-color, opacity;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--ease-smooth-out);
+}
+
+.pressable:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.bar-fill {
+  transition: width var(--motion-fast) var(--ease-smooth-out);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: color-mix(in oklab, var(--color-fg) 35%, transparent);
+  animation: fade-in var(--motion-fast) var(--ease-smooth-out);
+}
+
+.modal-panel {
+  position: fixed;
+  z-index: 50;
+  top: 50%;
+  left: 50%;
+  width: min(28rem, calc(100% - 2rem));
+  max-height: min(40rem, calc(100dvh - 2rem));
+  overflow: auto;
+  transform: translate(-50%, -50%);
+  border-radius: 2.25rem;
+  padding: 1.5rem;
+  animation: sheet-in var(--motion-fast) var(--ease-smooth-out);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-panel,
+  .modal-overlay,
+  .motion-colors,
+  .bar-fill,
+  .animate-pulse {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .pressable:active:not(:disabled) {
+    transform: none;
+  }
+}
