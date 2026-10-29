@@ -20,6 +20,8 @@ import type { Persisted } from "@/lib/persist-state";
 import { useHabits } from "@/lib/store";
 import type { Habit, HabitStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 
 export function SettingsView({ habits, onEdit }: { habits: Habit[]; onEdit: (habit: Habit) => void }) {
   return (
@@ -149,11 +151,167 @@ function ManageSection({ habits, onEdit }: { habits: Habit[]; onEdit: (habit: Ha
 }
 
 function RemindersSection() {
-  const [settings, setSettings] = useState<ReminderSettings>(() => loadReminder());
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(() =>
-    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+const [settings, setSettings] = useState<ReminderSettings>(() => loadReminder());
+const isNative = Capacitor.isNativePlatform();
+const [permission, setPermission] = useState<string>(() => {
+if (isNative) return "prompt";
+return typeof Notification === "undefined" ? "unsupported" : Notification.permission;
+});
+const [message, setMessage] = useState("");
+
+function update(next: ReminderSettings) {
+setSettings(next);
+saveReminder(next);
+}
+
+async function setNativeReminder(next: ReminderSettings) {
+try {
+let status = await LocalNotifications.checkPermissions();
+
+  if (status.display !== "granted") {
+    status = await LocalNotifications.requestPermissions();
+  }
+
+  setPermission(status.display);
+
+  if (status.display !== "granted") {
+    setMessage("Please allow notifications for Daymark in Android settings.");
+    return;
+  }
+
+  await LocalNotifications.cancel({
+    notifications: [{ id: 1001 }],
+  });
+
+  if (next.enabled) {
+    const [hour, minute] = next.time.split(":").map(Number);
+
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: 1001,
+          title: "Daymark daily reminder",
+          body: "Take a moment to review your habits for today.",
+          schedule: {
+            on: { hour, minute },
+            every: "day",
+            allowWhileIdle: true,
+          },
+          channelId: "daymark-reminders",
+        },
+      ],
+    });
+  }
+
+  update(next);
+  setMessage(
+    next.enabled
+      ? `Daily reminder scheduled for ${next.time}.`
+      : "Daily reminder turned off.",
   );
-  const [message, setMessage] = useState("");
+} catch {
+  setMessage("Could not schedule the Android reminder. Check notification permission and rebuild the APK.");
+}
+
+}
+
+async function toggle() {
+if (settings.enabled) {
+if (isNative) {
+await setNativeReminder({ ...settings, enabled: false });
+} else {
+update({ ...settings, enabled: false });
+setMessage("");
+}
+return;
+}
+
+if (isNative) {
+  await setNativeReminder({ ...settings, enabled: true });
+  return;
+}
+
+if (typeof Notification === "undefined") {
+  setMessage("This browser doesn't support notifications.");
+  return;
+}
+
+let granted = Notification.permission;
+if (granted === "default") {
+  granted = await Notification.requestPermission();
+}
+
+setPermission(granted);
+
+if (granted !== "granted") {
+  setMessage("Notifications are blocked. Allow them in your browser settings and try again.");
+  return;
+}
+
+update({ ...settings, enabled: true });
+setMessage("");
+
+}
+
+function changeTime(time: string) {
+if (!isValidTime(time)) return;
+
+const next = { ...settings, time };
+
+if (isNative && settings.enabled) {
+  void setNativeReminder(next);
+} else {
+  update(next);
+}
+
+}
+
+return (
+<SectionHeading id="reminders-heading" title="Reminders">
+Set a daily reminder at your chosen time. On Android, scheduled notifications can arrive while Daymark is closed. This reminder does not check which habits remain unfinished while the app is closed.
+<span className="mt-4 flex flex-col gap-4 rounded-xl border border-line bg-elevated p-4">
+<span className="flex items-center justify-between gap-3">
+<span className="font-medium text-fg">Daily reminder</span>
+<button
+type="button"
+role="switch"
+aria-checked={settings.enabled}
+aria-label="Daily reminder"
+disabled={permission === "unsupported"}
+onClick={() => void toggle()}
+className={cn(
+"pressable motion-colors relative h-7 w-12 shrink-0 rounded-full border border-line",
+settings.enabled ? "bg-accent" : "bg-surface",
+permission === "unsupported" && "opacity-40",
+)}
+>
+<span
+className={cn(
+"absolute top-0.5 left-0.5 size-5 rounded-full bg-bg shadow transition-transform",
+settings.enabled && "translate-x-5",
+)}
+/>
+</button>
+</span>
+<label className="flex items-center justify-between gap-3 text-sm">
+<span className="text-fg">Time</span>
+<input
+type="time"
+value={settings.time}
+disabled={!settings.enabled}
+onChange={(event) => changeTime(event.target.value)}
+className="h-10 rounded-md border border-line bg-bg px-3 text-fg disabled:opacity-40"
+/>
+</label>
+{message ? (
+<span role="status" className="text-sm text-muted">
+{message}
+</span>
+) : null}
+</span>
+</SectionHeading>
+);
+}
 
   function update(next: ReminderSettings) {
     setSettings(next);
