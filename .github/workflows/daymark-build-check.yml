@@ -23,3 +23,16 @@ jobs:
 
       - name: Build Daymark
         run: npm run build
+      
+      - name: Inspect build output
+        if: success()
+        run: |
+          echo "=== HTML entry files ==="
+          find . -maxdepth 5 -type f -name "index.html" -not -path "./node_modules/*" -not -path "./.git/*"
+          echo "=== Build output directories ==="
+          for d in dist .output/public .vercel/output/public; do
+            if [ -d "$d" ]; then
+              echo "FOUND: $d"
+              ls -la "$d" | head -30
+            fi
+          done
