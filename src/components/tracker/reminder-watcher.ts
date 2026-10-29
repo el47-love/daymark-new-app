@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { Capacitor } from "@capacitor/core";
 import { useHabits } from "@/lib/store";
