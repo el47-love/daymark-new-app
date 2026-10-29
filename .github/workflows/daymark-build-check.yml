@@ -36,3 +36,11 @@ jobs:
               ls -la "$d" | head -30
             fi
           done
+
+      - name: Find generated build files
+        if: success()
+        run: |
+          echo "=== Build folders ==="
+          find . -maxdepth 4 -type d \( -name .vercel -o -name .output -o -name dist -o -name server \) -not -path "./node_modules/*" -not -path "./.git/*"
+          echo "=== Generated entry files ==="
+          find . -maxdepth 6 -type f \( -name index.html -o -name config.json -o -name index.mjs -o -name nitro.json \) -not -path "./node_modules/*" -not -path "./.git/*" | head -100
