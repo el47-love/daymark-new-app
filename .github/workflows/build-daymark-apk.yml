@@ -1,5 +1,5 @@
 
-name: Build Daymark Android APK
+name: Build Daymark Offline Android APK
 
 on:
   workflow_dispatch:
@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout Daymark
+        uses: actions/checkout@v4
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -22,35 +25,113 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
 
-      - name: Create Android wrapper
+      - name: Install Daymark dependencies
+        run: npm ci
+
+      - name: Create offline app entry point
+        run: |
+          cat > offline.html <<'EOF'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="UTF-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+              <meta name="theme-color" content="#f3f0ea" />
+              <title>Daymark</title>
+            </head>
+            <body>
+              <div id="root"></div>
+              <script type="module" src="/src/offline-main.tsx"></script>
+            </body>
+          </html>
+          EOF
+
+          cat > src/offline-main.tsx <<'EOF'
+          import React from "react";
+          import { createRoot } from "react-dom/client";
+          import { TrackerApp } from "@/components/tracker/app";
+          import "./styles.css";
+
+          const root = document.getElementById("root");
+
+          if (!root) {
+            throw new Error("Daymark root element was not found.");
+          }
+
+          createRoot(root).render(
+            <React.StrictMode>
+              <TrackerApp />
+            </React.StrictMode>
+          );
+          EOF
+
+          cat > vite.offline.config.ts <<'EOF'
+          import { defineConfig } from "vite";
+          import react from "@vitejs/plugin-react";
+          import tailwindcss from "@tailwindcss/vite";
+
+          export default defineConfig({
+            base: "./",
+            resolve: {
+              tsconfigPaths: true,
+            },
+            plugins: [
+              tailwindcss(),
+              react(),
+            ],
+            build: {
+              outDir: "offline-dist",
+              emptyOutDir: true,
+              rollupOptions: {
+                input: "offline.html",
+              },
+            },
+          });
+          EOF
+
+      - name: Build bundled offline interface
+        run: |
+          npx vite build --config vite.offline.config.ts
+          test -f offline-dist/offline.html
+          mv offline-dist/offline.html offline-dist/index.html
+          test -d offline-dist/assets
+
+      - name: Create local Android wrapper
         run: |
           mkdir apk-wrapper
           cd apk-wrapper
           npm init -y
           npm install @capacitor/core @capacitor/android
           npm install --save-dev @capacitor/cli
+
           mkdir www
-          echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body></body></html>' > www/index.html
+          cp -r ../offline-dist/. www/
+
           cat > capacitor.config.json <<'EOF'
           {
             "appId": "com.emmanuel.daymark",
             "appName": "Daymark",
             "webDir": "www",
-            "server": {
-              "url": "https://daymark-new-app.vercel.app",
-              "cleartext": false
+            "android": {
+              "allowMixedContent": false
             }
           }
           EOF
+
           npx cap add android
-          cd android
+          npx cap sync android
+
+      - name: Build Android APK
+        run: |
+          cd apk-wrapper/android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Upload Daymark APK
+      - name: Upload offline APK
         uses: actions/upload-artifact@v4
         with:
-          name: Daymark-Android-APK
+          name: Daymark-Offline-Android-APK
           path: apk-wrapper/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
