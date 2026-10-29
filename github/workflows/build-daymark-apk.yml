@@ -1,0 +1,53 @@
+
+name: Build Daymark Android APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Create Android wrapper
+        run: |
+          mkdir apk-wrapper
+          cd apk-wrapper
+          npm init -y
+          npm install @capacitor/core @capacitor/android
+          npm install --save-dev @capacitor/cli
+          mkdir www
+          echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body></body></html>' > www/index.html
+          cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.emmanuel.daymark",
+            "appName": "Daymark",
+            "webDir": "www",
+            "server": {
+              "url": "https://daymark-new-app.vercel.app",
+              "cleartext": false
+            }
+          }
+          EOF
+          npx cap add android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload Daymark APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Daymark-Android-APK
+          path: apk-wrapper/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
